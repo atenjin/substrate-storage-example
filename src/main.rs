@@ -53,6 +53,7 @@ pub fn storage(key: &[u8]) -> Option<Vec<u8>> {
 }
 
 pub fn read_storage(key: &[u8], value_out: &mut [u8], value_offset: usize) -> Option<usize> {
+    println!("read_storage {:?}, value_offset:{:}", key, value_offset);
     ext::with(|ext| ext.storage(key).map(|value| {
         let value = &value[value_offset..];
         let written = ::std::cmp::min(value.len(), value_out.len());
@@ -96,12 +97,19 @@ fn main() {
     let mut s = MemDB::new();
 
     with_externalities(&mut s, || {
-        A::put(1);
-        let s = A::get();
-        println!("{:?}", s);
+//        A::put(1);
+//        let s = A::get();
+//        println!("{:?}", s);
+//
+//        B::insert(1, 2);
+//        let r = B::get(1);
+//        println!("{:?}", r);
 
-        B::insert(1, 2);
-        let r = B::get(1);
+        C::put(Some(1));
+    });
+    println!("===============");
+    with_externalities(&mut s, || {
+        let r = C::get();
         println!("{:?}", r);
     })
 }
