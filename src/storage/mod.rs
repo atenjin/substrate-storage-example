@@ -8,7 +8,11 @@ use super::codec::Input;
 use self::primitives::twox_128;
 
 pub mod generator;
+
 use self::generator::Storage as GenericStorage;
+
+#[cfg(all(feature = "msgbus-redis"))]
+pub mod redis;
 
 struct IncrementalInput<'a> {
     key: &'a [u8],
@@ -56,7 +60,19 @@ pub fn get_or_else<T: Codec + Sized, F: FnOnce() -> T>(key: &[u8], default_value
 
 /// Put `value` in storage under `key`.
 pub fn put<T: Codec>(key: &[u8], value: &T) {
-    value.using_encoded(|slice| set_storage(&twox_128(key)[..], slice));
+    let hash = twox_128(key);
+
+    value.using_encoded(|slice| {
+        #[cfg(all(feature = "msgbus-redis"))] {
+            redis::redis_set_with_blocknumer(key, 5, slice);
+        }
+
+        #[cfg(all(feature = "msgbus-redis-keyhash"))] {
+            redis::redis_set(key, &hash);
+        }
+
+        set_storage(&hash[..], slice)
+    });
 }
 
 /// Remove `key` from storage, returning its value if it had an explicit entry or `None` otherwise.
@@ -91,9 +107,18 @@ pub fn exists(key: &[u8]) -> bool {
     exists_storage(&twox_128(key)[..])
 }
 
-/// Ensure `key` has no explicit entry in storage.
+/// Ensure `key` has no explicit entry in s    torage.
 pub fn kill(key: &[u8]) {
-    clear_storage(&twox_128(key)[..]);
+    let hash = twox_128(key);
+    #[cfg(all(feature = "msgbus-redis"))] {
+        redis::redis_set_with_blocknumer(key, 5, b"");
+    }
+
+    #[cfg(all(feature = "msgbus-redis-keyhash"))] {
+        redis::redis_set(key, &hash);
+    }
+
+    clear_storage(&hash[..]);
 }
 
 /// Get a Vec of bytes from storage.

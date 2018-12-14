@@ -69,7 +69,7 @@ impl StorageValue<Option<u32>> for C {
     type Query = Option<u32>;
 
     fn key() -> &'static [u8] {
-        b"A"
+        b"C"
     }
 
     fn get<S: Storage>(storage: &S) -> Self::Query {

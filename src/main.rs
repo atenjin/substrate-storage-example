@@ -2,6 +2,13 @@
 extern crate environmental;
 extern crate parity_codec as codec;
 
+#[cfg(any(feature = "msgbus-redis", feature = "cache-lru", ))]
+#[macro_use]
+extern crate lazy_static;
+
+#[cfg(all(feature = "cache-lru"))]
+extern crate lru;
+
 mod traits;
 mod storage;
 mod datadef;
@@ -91,19 +98,22 @@ pub fn with_externalities<R, F: FnOnce() -> R>(ext: &mut MemDBT, f: F) -> R {
 }
 
 
-fn main() {
+fn main() -> Result<(), String> {
+    #[cfg(all(feature = "msgbus-redis"))] {
+        storage::redis::init_redis("redis://127.0.0.1/")?;
+    }
     println!("Hello, world!");
 
     let mut s = MemDB::new();
 
     with_externalities(&mut s, || {
-//        A::put(1);
-//        let s = A::get();
-//        println!("{:?}", s);
-//
-//        B::insert(1, 2);
-//        let r = B::get(1);
-//        println!("{:?}", r);
+        A::put(1);
+        let s = A::get();
+        println!("{:?}", s);
+
+        B::insert(1, 2);
+        let r = B::get(1);
+        println!("{:?}", r);
 
         C::put(Some(1));
     });
@@ -111,5 +121,8 @@ fn main() {
     with_externalities(&mut s, || {
         let r = C::get();
         println!("{:?}", r);
-    })
+//        let r = C::take();
+//        println!("{:?}", r);
+    });
+    Ok(())
 }
