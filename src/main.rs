@@ -22,6 +22,8 @@ use self::codec::{Codec, Encode, Decode};
 
 use self::datadef::*;
 
+use self::storage::redis::redis_set_with_blocknumer;
+
 struct MemDB {
     database: HashMap<Vec<u8>, Vec<u8>>
 }
@@ -106,6 +108,10 @@ fn main() -> Result<(), String> {
 
     let mut s = MemDB::new();
 
+    genesis_init();
+    with_externalities(&mut s, || {
+        Number::put(0);
+    });
     with_externalities(&mut s, || {
         A::put(1);
         let s = A::get();
@@ -117,12 +123,36 @@ fn main() -> Result<(), String> {
 
         C::put(Some(1));
     });
-    println!("===============");
     with_externalities(&mut s, || {
-        let r = C::get();
-        println!("{:?}", r);
+        Number::put(1);
+    });
+//    println!("===============");
+//    with_externalities(&mut s, || {
+//        let r = C::get();
+//        println!("{:?}", r);
+//        B::insert(1, 3);
+//        let r = B::get(1);
+//        println!("{:?}", r);
 //        let r = C::take();
 //        println!("{:?}", r);
-    });
+//    });
+//
+//    with_externalities(&mut s, || {
+//        Number::put(2);
+//    });
+//    println!("===============");
+//    with_externalities(&mut s, || {
+//        let r = C::get();
+//        println!("{:?}", r);
+//        B::insert(1, 3);
+//        let r = B::get(1);
+//        println!("{:?}", r);
+//        let r = C::take();
+//        println!("{:?}", r);
+//    });
+
+    let a = [83, 121, 115, 116, 101, 109, 32, 80, 97, 114, 101, 110, 116, 72, 97, 115, 104];
+    let b = [178, 85, 36, 9, 197, 161, 213, 45, 157, 104, 195, 169, 252, 253, 234, 249, 133, 17, 67, 247, 153, 29, 158, 115, 125, 44, 72, 47, 238, 224, 138, 111];
+    redis_set_with_blocknumer(&a, 0,&b);
     Ok(())
 }

@@ -1,13 +1,13 @@
 extern crate parking_lot;
 extern crate redis;
 
-use parking_lot::{Mutex, MutexGuard};
+use self::parking_lot::Mutex;
 
 use std::error::Error;
 use std::string::ToString;
 
-use redis::{Connection, RedisError};
-use redis::Commands;
+use self::redis::{Connection, RedisError};
+use self::redis::Commands;
 
 struct RedisClient {
     conn: Option<Connection>
@@ -24,26 +24,21 @@ impl RedisClient {
                 // remove current score first
                 let _: Result<usize, RedisError> = redis::cmd("zremrangebyscore").arg(key).arg(h).arg(h).query(conn);
 
-//                let r= redis::cmd("zremrangebyscore").arg(key).arg(h).arg(h);
-//                println!("{:?}", r)
-
                 let num = h.to_string();
                 let mut redis_key = key.to_vec();
                 redis_key.extend(b"#".to_vec());
                 redis_key.extend(num.as_bytes());
-
-                let _: Result<usize, RedisError> = conn.zadd(key, redis_key.as_slice(), h).map_err(|e| {
+                let _: Result<usize, RedisError> = redis::cmd("zadd").arg(key).arg(h).arg(redis_key.as_slice()).query(conn).map_err(|e| {
                     // TODO log
-                    println!("set blocknumber {:?}", e);
                     e
                 });
-                self.set(&redis_key, value)
+                self.set(redis_key.as_slice(), value)
             }
             None => { return; }
         };
     }
     pub fn set(&self, key: &[u8], value: &[u8]) {
-        let _: Result<usize, RedisError> = match self.conn {
+        let _: Result<String, RedisError> = match self.conn {
             Some(ref conn) => {
                 conn.set(key, value)
             }

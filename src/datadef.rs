@@ -1,5 +1,36 @@
 use super::storage::generator::{StorageValue, StorageMap, Storage};
 use super::codec;
+use super::storage::blocknumber::set_blocknumber_key;
+
+
+pub fn genesis_init(){
+    set_blocknumber_key(Number::key());
+}
+
+pub struct Number;
+impl StorageValue<u64> for Number {
+    type Query = u64;
+
+    fn key() -> &'static [u8] {
+        b"System Number"
+    }
+
+    fn get<S: Storage>(storage: &S) -> Self::Query {
+        storage.get(Self::key()).unwrap_or_else(|| Default::default())
+    }
+
+    fn take<S: Storage>(storage: &S) -> Self::Query {
+        storage.take(Self::key()).unwrap_or_else(|| Default::default())
+    }
+
+    fn mutate<R, F: FnOnce(&mut Self::Query) -> R, S: Storage>(f: F, storage: &S) -> R {
+        let mut val = Self::get(storage);
+        let ret = f(&mut val);
+        Self::put(&val, storage);
+        ret
+    }
+}
+
 
 // ========================== test struct ==================
 //

@@ -13,6 +13,27 @@ use self::generator::Storage as GenericStorage;
 
 #[cfg(all(feature = "msgbus-redis"))]
 pub mod redis;
+#[cfg(all(feature = "msgbus-redis"))]
+pub mod blocknumber;
+
+#[cfg(all(feature = "msgbus-redis"))]
+use self::blocknumber::*;
+
+#[cfg(all(feature = "msgbus-redis"))]
+pub fn get_blocknumber() -> Option<u64> {
+    let key = blocknumber_hashedkey();
+
+    let r = runtime_io::read_storage(&key[..], &mut [0; 0][..], 0).map(|_| {
+        let mut input = IncrementalInput {
+            key: &key[..],
+            pos: 0,
+        };
+        Decode::decode(&mut input).expect("storage is not null, therefore must be a valid type")
+    });
+    println!("blocknumber: {:?}", r);
+    r
+}
+
 
 struct IncrementalInput<'a> {
     key: &'a [u8],
@@ -60,18 +81,18 @@ pub fn get_or_else<T: Codec + Sized, F: FnOnce() -> T>(key: &[u8], default_value
 
 /// Put `value` in storage under `key`.
 pub fn put<T: Codec>(key: &[u8], value: &T) {
+//	value.using_encoded(|slice| runtime_io::set_storage(&twox_128(key)[..], slice));
     let hash = twox_128(key);
 
     value.using_encoded(|slice| {
+        runtime_io::set_storage(&hash[..], slice);
         #[cfg(all(feature = "msgbus-redis"))] {
-            redis::redis_set_with_blocknumer(key, 5, slice);
-        }
+            redis::redis_set_with_blocknumer(key, get_blocknumber().unwrap_or(0), slice);
 
-        #[cfg(all(feature = "msgbus-redis-keyhash"))] {
-            redis::redis_set(key, &hash);
+            #[cfg(all(feature = "msgbus-redis-keyhash"))] {
+                redis::redis_set(&hash, key);
+            }
         }
-
-        set_storage(&hash[..], slice)
     });
 }
 
@@ -107,18 +128,22 @@ pub fn exists(key: &[u8]) -> bool {
     exists_storage(&twox_128(key)[..])
 }
 
-/// Ensure `key` has no explicit entry in s    torage.
+/// Ensure `key` has no explicit entry in storage.
 pub fn kill(key: &[u8]) {
+//	runtime_io::clear_storage(&twox_128(key)[..]);
     let hash = twox_128(key);
     #[cfg(all(feature = "msgbus-redis"))] {
-        redis::redis_set_with_blocknumer(key, 5, b"");
+        match get_blocknumber() {
+            None => {} // when blocknumber is None, due to it's `finalise`, don't remove
+            Some(blocknumber) => {
+                redis::redis_set_with_blocknumer(key, blocknumber, b"");
+                #[cfg(all(feature = "msgbus-redis-keyhash"))] {
+                    redis::redis_set(&hash, key);
+                }
+            }
+        }
     }
-
-    #[cfg(all(feature = "msgbus-redis-keyhash"))] {
-        redis::redis_set(key, &hash);
-    }
-
-    clear_storage(&hash[..]);
+    runtime_io::clear_storage(&hash[..]);
 }
 
 /// Get a Vec of bytes from storage.
