@@ -6,7 +6,7 @@ use self::parking_lot::Mutex;
 use std::error::Error;
 use std::string::ToString;
 
-use self::redis::{Connection, RedisError};
+use self::redis::{Connection, ConnectionLike, RedisError};
 use self::redis::Commands;
 
 struct RedisClient {
@@ -22,17 +22,26 @@ impl RedisClient {
             Some(ref conn) => {
                 // todo  refactor with Struct redis::Pipeline
                 // remove current score first
-                let _: Result<usize, RedisError> = redis::cmd("zremrangebyscore").arg(key).arg(h).arg(h).query(conn);
-
+//                let _: Result<usize, RedisError> = redis::cmd("zremrangebyscore").arg(key).arg(h).arg(h).query(conn);
+//
                 let num = h.to_string();
                 let mut redis_key = key.to_vec();
                 redis_key.extend(b"#".to_vec());
                 redis_key.extend(num.as_bytes());
-                let _: Result<usize, RedisError> = redis::cmd("zadd").arg(key).arg(h).arg(redis_key.as_slice()).query(conn).map_err(|e| {
-                    // TODO log
-                    e
-                });
-                self.set(redis_key.as_slice(), value)
+//                let _: Result<usize, RedisError> = redis::cmd("zadd").arg(key).arg(h).arg(redis_key.as_slice()).query(conn).map_err(|e| {
+//                    // TODO log
+//                    e
+//                });
+//                self.set(redis_key.as_slice(), value)
+                let r: Result<(usize,), RedisError> = redis::pipe()
+                    .cmd("ZREMRANGEBYSCORE").arg(key).arg(h).arg(h).ignore()
+                    .cmd("ZADD").arg(key).arg(h).arg(redis_key.as_slice())
+                    .cmd("SET").arg(redis_key).arg(value).ignore()
+                    .query(conn);
+
+                if let Err(e) = r {
+                    println!("redis err:{}", e);
+                }
             }
             None => { return; }
         };

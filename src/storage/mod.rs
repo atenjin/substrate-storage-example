@@ -23,7 +23,7 @@ use self::blocknumber::*;
 pub fn get_blocknumber() -> Option<u64> {
     let key = blocknumber_hashedkey();
 
-    let r = runtime_io::read_storage(&key[..], &mut [0; 0][..], 0).map(|_| {
+    let r = read_storage(&key[..], &mut [0; 0][..], 0).map(|_| {
         let mut input = IncrementalInput {
             key: &key[..],
             pos: 0,
@@ -81,11 +81,11 @@ pub fn get_or_else<T: Codec + Sized, F: FnOnce() -> T>(key: &[u8], default_value
 
 /// Put `value` in storage under `key`.
 pub fn put<T: Codec>(key: &[u8], value: &T) {
-//	value.using_encoded(|slice| runtime_io::set_storage(&twox_128(key)[..], slice));
+//	value.using_encoded(|slice| set_storage(&twox_128(key)[..], slice));
     let hash = twox_128(key);
 
     value.using_encoded(|slice| {
-        runtime_io::set_storage(&hash[..], slice);
+        set_storage(&hash[..], slice);
         #[cfg(all(feature = "msgbus-redis"))] {
             redis::redis_set_with_blocknumer(key, get_blocknumber().unwrap_or(0), slice);
 
@@ -130,7 +130,7 @@ pub fn exists(key: &[u8]) -> bool {
 
 /// Ensure `key` has no explicit entry in storage.
 pub fn kill(key: &[u8]) {
-//	runtime_io::clear_storage(&twox_128(key)[..]);
+//	clear_storage(&twox_128(key)[..]);
     let hash = twox_128(key);
     #[cfg(all(feature = "msgbus-redis"))] {
         match get_blocknumber() {
@@ -143,7 +143,7 @@ pub fn kill(key: &[u8]) {
             }
         }
     }
-    runtime_io::clear_storage(&hash[..]);
+    clear_storage(&hash[..]);
 }
 
 /// Get a Vec of bytes from storage.
